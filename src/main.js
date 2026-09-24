@@ -5,6 +5,7 @@ import { Registry, CATEGORIES, catById } from './registry.js';
 import { buildUpper } from './parts/upper.js';
 import { buildLower } from './parts/lower.js';
 import { buildBCG } from './parts/bcg.js';
+import { buildBarrel } from './parts/barrel.js';
 
 const $ = (id) => document.getElementById(id);
 const reducedMQ = matchMedia('(prefers-reduced-motion: reduce)');
@@ -43,6 +44,7 @@ reg.root.add(reg.guides);
 buildUpper(reg);
 buildLower(reg);
 buildBCG(reg);
+buildBarrel(reg);
 
 // Each part's assembled bounding box; framing and the contact shadow derive from these.
 const LIFT = 120; // the rifle rises as it comes apart so parts pushed down stay above the shadow
@@ -83,7 +85,14 @@ const state = { explodeTarget: 0, explode: 0, cat: 'all', selected: null, dirty:
 // The camera target and distance blend from a fit of the assembled rifle to a fit
 // of the pulled-apart parts, so the exploded view fills the screen on phones and
 // desktops. Picking a group re-fits smoothly to that group (plus the ghosted outline).
-const VIEW = { az: 24, el: 14 };
+// Portrait phones have spare height, so the parts spread taller there and the
+// default view turns further round to shorten the rifle on screen.
+const LAYOUTS = {
+  portrait: { az: 40, el: 16, spread: new THREE.Vector3(0.85, 1.45, 1.15) },
+  landscape: { az: 24, el: 12, spread: new THREE.Vector3(1.15, 0.9, 1.1) },
+};
+const layoutKey = () => (innerWidth < innerHeight * 0.9 ? 'portrait' : 'landscape');
+let layout = null;
 const cam = {
   zoom: 1, // user zoom relative to the fitted distance
   pan: new THREE.Vector3(), // user pan relative to the fitted centre
@@ -141,7 +150,7 @@ function applyCamera(dir = currentDir()) {
   camera.position.copy(controls.target).addScaledVector(dir, fitAt(cam.cur, state.explode) * cam.zoom);
   state.dirty = true;
 }
-function setView(az = VIEW.az, el = VIEW.el, scale = 1) {
+function setView(az = LAYOUTS[layout].az, el = LAYOUTS[layout].el, scale = 1) {
   const dir = viewDir(az, el);
   cam.goal = computeFit(dir);
   cam.cur = { ...cam.goal, c0: cam.goal.c0.clone(), c1: cam.goal.c1.clone() };
@@ -164,8 +173,21 @@ function resize() {
   camera.updateProjectionMatrix();
   state.dirty = true;
 }
-addEventListener('resize', resize);
+/** Apply the portrait / landscape spread; returns true if it changed. */
+function applyLayout() {
+  const k = layoutKey();
+  if (k === layout) return false;
+  layout = k;
+  reg.setSpread(LAYOUTS[k].spread);
+  return true;
+}
+addEventListener('resize', () => {
+  resize();
+  if (applyLayout()) setView(); // turning the phone re-frames; plain resizes keep the user's view
+  else refit();
+});
 resize();
+applyLayout();
 setView();
 
 // ---------- UI ----------

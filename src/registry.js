@@ -43,7 +43,8 @@ export class Registry {
     this.root.add(outer);
     const part = {
       id: this.parts.length, name, desc, cat, outer, shell,
-      dir: new THREE.Vector3(...explode),
+      base: new THREE.Vector3(...explode), // authored offset
+      dir: new THREE.Vector3(...explode), // offset after the per-orientation spread
       delay: clamp(delay),
       alpha: 1, alphaTarget: 1,
       mats: [], meshes: [],
@@ -116,6 +117,14 @@ export class Registry {
       }
     }
     return busy;
+  }
+
+  /** Stretch every pull-apart offset per axis (portrait screens get a taller layout). */
+  setSpread(v) {
+    for (const p of this.parts) {
+      p.dir.copy(p.base).multiply(v);
+      p.lastE = undefined; // force a re-position on the next update
+    }
   }
 
   setFilter(cat) {
