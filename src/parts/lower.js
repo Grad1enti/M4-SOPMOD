@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { D } from '../dims.js';
 import { M } from '../materials.js';
-import { mesh, rboxAt, latheX, extrudeXY, spline2, helixX, group, cylZ, DEG } from '../geom.js';
+import { decal, stick, font } from '../decals.js';
+import { mesh, rboxAt, latheX, extrudeXY, spline2, helixX, group, cylZ, DEG, curve1d, ringLoft, clamp } from '../geom.js';
 
 // M4A1 lower receiver group, buffer system and SOPMOD buttstock.
 const B = D.parting, W = D.upperHW;
@@ -31,7 +32,7 @@ export function buildLower(reg) {
       [-9, B], [-8, -18], [-9, -24], [-12, -28], [-17, -31], [-19.5, -33],
       [-21, -83], [-24, -88], [-26, -91], [-88, -91], [-89.5, -87], [-87, -82],
       [-87, -50], [-92, -46.5], [-136, -46.5], [GRIP_TOP[0], GRIP_TOP[1]],
-      [-166, -41], [-172, -36], [-180, -27], [-188, -19], [D.towerRear, -14], [D.towerRear, -6],
+      [-172.5, -38.2], [-178, -31], [-182.5, -25], [-188, -19], [D.towerRear, -14], [D.towerRear, -6],
       [D.towerFront, -6], [D.towerFront, B],
     ];
     const body = mesh(extrudeXY(prof, 2 * W, { bevel: 1.6 }), M.anod);
@@ -45,9 +46,24 @@ export function buildLower(reg) {
     // dark openings: magazine well, fire-control pocket, magazine release hole
     const wellBottom = hole(62, 21, [-55.5, -91.1, 0], [Math.PI / 2, 0, 0]);
     const pocket = hole(145, 20, [-93.5, B + 0.05, 0], [-Math.PI / 2, 0, 0]);
+    // roll marks on the left of the magazine well
+    const roll = stick(decal(48, 15, (ctx, px) => {
+      ctx.font = font(3.1, px, 700);
+      ctx.fillText('M4A1 CARBINE', 24 * px, 4.2 * px);
+      ctx.fillText('CAL 5.56 MM', 24 * px, 10.4 * px);
+    }), '-z', -53, -60, -W - 0.06);
+    // selector positions around the lever, read from the left: forward is to the viewer's left
+    const marks = stick(decal(56, 34, (ctx, px) => {
+      ctx.font = font(2.8, px, 700);
+      const cx = 28 * px, cy = 17 * px;
+      for (const [label, a] of [['SAFE', 150], ['SEMI', 90], ['AUTO', 30]]) {
+        const r = 15.5 * px, t = (a * Math.PI) / 180;
+        ctx.fillText(label, cx + Math.cos(t) * r, cy - Math.sin(t) * r * 0.78);
+      }
+    }), '-z', SELECTOR[0], SELECTOR[1] + 2, -W - 0.06);
     add('Lower receiver (M4A1)',
       'Forged 7075-T6 aluminium, hard-coat anodised. It carries the magazine well, the fire-control group, the pistol grip and, in the ring at its rear, the buffer tube. The M4A1 version has a three-position selector (Safe, Semi, Auto) instead of the M4\'s three-round burst.',
-      group(body, flare, tower, fence, catchBoss, wellBottom, pocket), [0, -55, 0], 0.05, true);
+      group(body, flare, tower, fence, catchBoss, wellBottom, pocket, roll, marks), [0, -55, 0], 0.05, true);
   }
 
   // --- Magazine (30-round) with two rounds under the feed lips ---
@@ -84,19 +100,33 @@ export function buildLower(reg) {
 
   // --- Pistol grip (FDE) ---
   {
-    const local = spline2([
-      [0, 0], [-15, 0.5], [-30, 0], [-31.5, -12], [-33.5, -32], [-32, -58], [-30.5, -82], [-29, -94],
-      [-15, -96], [-2, -94], [0, -82], [3, -64], [5, -51], [2.5, -41], [-0.5, -30], [1, -14],
-    ], 90, true, 0.4);
-    const c = Math.cos(GRIP_ANGLE), s = Math.sin(GRIP_ANGLE);
-    const pts = local.map(([x, y]) => [GRIP_TOP[0] + x * c - y * s, GRIP_TOP[1] + x * s + y * c]);
-    const grip = mesh(extrudeXY(pts, 29, { bevel: 7.5, seg: 5 }), M.fde);
-    // storage-compartment cap in the base
-    const bx = GRIP_TOP[0] + -15 * c - -95.6 * s, by = GRIP_TOP[1] + -15 * s + -95.6 * c;
-    const cap = mesh(new THREE.CylinderGeometry(8, 8, 1.5, 24), M.fdeDark, [bx, by, 0], [0, 0, GRIP_ANGLE]);
+    // A2 grip, lofted from cross-sections along its 22° rake. Local frame: x fore-aft
+    // (+ forward), s down the grip from the receiver, z across. Side profile and width
+    // follow the A2: finger swell on the front strap, palm swell on the backstrap,
+    // ~27 mm across and ~37 mm deep at the top, 100 mm long.
+    const FRONT = [[0, 0], [-8, -1], [-20, -2.8], [-30, -2.2], [-38, 0.6], [-44, 3.2], [-49, 4], [-54, 3], [-60, 0.2], [-68, -1.8], [-84, -2.2], [-94, 0], [-100, 0.8]];
+    const BACK = [[0, -37], [-8, -35.2], [-20, -33], [-35, -35], [-50, -36.4], [-65, -36], [-80, -34.6], [-94, -33], [-100, -32.6]];
+    const HALF = [[0, 13.9], [-30, 13.9], [-55, 13.6], [-80, 13.2], [-100, 12.8]];
+    const c = Math.cos(GRIP_ANGLE), sn = Math.sin(GRIP_ANGLE);
+    const toWorld = (x, s, z) => [GRIP_TOP[0] + x * c - s * sn, GRIP_TOP[1] + x * sn + s * c, z];
+    const section = (s, shrink = 1, N = 48, e = 2.7) => {
+      const f = curve1d(FRONT, s), b = curve1d(BACK, s), hw = curve1d(HALF, s) * shrink;
+      const mid = (f + b) / 2, d = ((f - b) / 2) * shrink;
+      return Array.from({ length: N }, (_, k) => {
+        const t = (k / N) * Math.PI * 2, ct = Math.cos(t), st = Math.sin(t);
+        const u = Math.sign(ct) * Math.abs(ct) ** (2 / e), v = Math.sign(st) * Math.abs(st) ** (2 / e);
+        return toWorld(mid + d * u, s, hw * v * (1 - 0.14 * Math.max(0, u))); // slimmer at the finger side
+      });
+    };
+    const rings = [];
+    for (let s = 0; s >= -96; s -= 3) rings.push(section(s));
+    for (const [s, k] of [[-97.8, 0.95], [-99, 0.86], [-99.7, 0.74], [-100, 0.6]]) rings.push(section(s, k));
+    const grip = mesh(ringLoft(rings), M.grip);
+    // the A2 is open at the bottom: a dark hollow for the grip screw and small spares
+    const hollow = mesh(ringLoft([section(-100.05, 0.45, 32)], { cap1: false }), M.hole);
     add('Pistol grip (FDE)',
-      'A2-style grip with the finger swell, in flat dark earth polymer. One screw from inside the grip holds it to the receiver and also traps the selector\'s detent spring. The hollow core stores small spares.',
-      group(grip, cap), [-40, -170, 0], 0.3, true);
+      'A2 grip in flat dark earth polymer, with the finger swell between the middle and ring fingers and checkered side panels. One screw up through its hollow core holds it to the receiver and also traps the selector\'s detent spring.',
+      group(grip, hollow), [-40, -170, 0], 0.3, true);
   }
 
   // --- Trigger guard ---

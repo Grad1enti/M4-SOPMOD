@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { clamp } from './geom.js';
+import { applySurface } from './textures.js';
 
 /**
  * Bake every mesh of a part that shares a material into one mesh, so a part
@@ -84,6 +85,7 @@ export class Registry {
     const own = (mat) => {
       if (!clones.has(mat)) {
         const m = mat.clone();
+        applySurface(m); // procedural texture; set after cloning because clone() drops shader hooks
         m.userData.base = {
           opacity: m.opacity, transparent: m.transparent, depthWrite: m.depthWrite,
           emissive: m.emissive ? m.emissive.clone() : null, emissiveIntensity: m.emissiveIntensity ?? 1,
@@ -192,6 +194,7 @@ export class Registry {
     }
     p.outer.visible = p.alpha > 0.001;
     p.pickable = p.alphaTarget === 1;
+    for (const o of p.meshes) o.castShadow = full && !!o.userData.castsShadow; // ghosts cast no shadow
   }
 
   highlight(part, on) {

@@ -11,7 +11,7 @@ const lensMat = new THREE.MeshStandardMaterial({ color: 0x223038, roughness: 0.0
 const emitter = new THREE.MeshStandardMaterial({ color: 0xdfe6ea, roughness: 0.1, metalness: 0.2, emissive: 0x9fb0bb, emissiveIntensity: 0.25, side: THREE.DoubleSide });
 
 /** Rail clamp block hugging a Picatinny rail, built upright on the rail's top face. */
-function clamp(x0, x1, mat, lugs = 2) {
+function clamp(x0, x1, mat, lugs = 2, lugMat = M.phosDark) {
   const g = group(
     rboxAt(x0, x1, 6.4, 10.5, -12.8, 12.8, 1, mat),
     rboxAt(x0, x1, -1, 7, 10.4, 12.8, 0.6, mat),
@@ -19,7 +19,8 @@ function clamp(x0, x1, mat, lugs = 2) {
   );
   for (let k = 0; k < lugs; k++) {
     const x = x0 + ((k + 1) * (x1 - x0)) / (lugs + 1);
-    g.add(mesh(cylZ(4.5, 4.5, 4, 16), M.steel, [x, 3, -15]));
+    g.add(mesh(cylZ(4.5, 4.5, 3, 20), lugMat, [x, 3, -14.3]));
+    g.add(mesh(cylZ(2, 2, 3.2, 6), M.hole, [x, 3, -14.3])); // hex socket
   }
   return g;
 }

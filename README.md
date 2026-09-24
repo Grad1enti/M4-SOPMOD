@@ -19,11 +19,21 @@ network needed), so you can copy it to a phone and open it in Chrome.
 | Group | Parts |
 | --- | --- |
 | Upper receiver | M4A1 flat-top upper with 1913 rail and ejection port, charging handle, dust cover, forward assist |
-| Lower receiver & stock | M4A1 lower, trigger & disconnector, hammer, auto sear, selector, bolt catch, magazine catch, takedown & pivot pins, trigger guard, FDE A2 grip, 30-round magazine, buffer tube, castle nut & end plate, buffer & spring, B5 Enhanced SOPMOD stock (FDE) |
+| Lower receiver & stock | M4A1 lower, trigger & disconnector, hammer, auto sear, selector, bolt catch, magazine catch, takedown & pivot pins, trigger guard, FDE A2 grip (lofted, checkered), 30-round magazine, buffer tube, castle nut & end plate, buffer & spring, B5 Enhanced SOPMOD stock (FDE) |
 | Bolt carrier group | carrier, gas key, bolt, extractor, cam pin, firing pin, retaining pin |
 | Barrel & handguard | 14.5 in barrel, barrel nut, gas tube, front sight base / gas block, Daniel Defense M4A1 FSP RIS II upper and lower halves (FDE), FDE rail panels, KAC NT4 flash hider |
 | Optics & sights | EOTech 553 (SU-231/PEQ), G33 3× magnifier on STS mount, KAC folding rear sight, front sight post |
 | SOPMOD accessories | AN/PEQ-15 (ATPIAL), Insight M3X light, FDE vertical foregrip, KAC QDSS-NT4 suppressor |
+
+## Surfaces
+
+Textures are procedural (generated at start-up, no image files) and mapped by object-space
+position (triplanar), so no part needs UVs: bead-blasted hard-anodised aluminium, crystalline
+parkerised steel, stippled FDE polymer, a checkered A2 grip, FDE Cerakote on the rail, rubber and
+turned steel. Each has colour and roughness variation, fine bump relief and, on the metals, light
+edge wear. Engraved markings (roll marks, SAFE / SEMI / AUTO, rail slot numbers, the "F" on the
+front sight base) are canvas decals. The key light casts real shadows, including onto the floor.
+See `src/textures.js` and `src/decals.js`.
 
 ## Dimensions used
 
@@ -43,7 +53,7 @@ npm run build        # -> dist/index.html and m4-sopmod.html
 npm run shot out.png explode=0.6 cat=lower   # headless screenshot (uses /opt/pw-browsers/chromium)
 ```
 
-`npm run shot` also takes `view=az,el,zoom`, `select=Part name`, `theme=dark`, `reduced=1`,
+`npm run shot` also takes `view=az,el,zoom`, `focus=x,y,z`, `select=Part name`, `theme=dark`, `reduced=1`,
 `w=` and `h=`.
 
 Source: `src/parts/{upper,lower,bcg,barrel,optics,sopmod}.js` hold the parts, one module per

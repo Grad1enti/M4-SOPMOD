@@ -282,15 +282,19 @@ export function picatinny(x0, x1, { h = 6.4, slots = true, spine = 15.6 } = {}) 
   const floor = new THREE.BoxGeometry(x1 - x0, h - 2.9, spine);
   floor.translate((x0 + x1) / 2, (h - 2.9) / 2, 0);
   geos.push(floor);
-  const pitch = 10.0, slot = 5.23, tooth = pitch - slot;
-  const count = Math.floor((x1 - x0 + slot) / pitch);
-  const start = x0 + ((x1 - x0) - (count * pitch - slot)) / 2;
-  for (let k = 0; k < count; k++) {
-    const g = bar(tooth);
-    g.translate(start + k * pitch, 0, 0);
+  for (const xc of railTeeth(x0, x1)) {
+    const g = bar(RAIL_TOOTH);
+    g.translate(xc - RAIL_TOOTH / 2, 0, 0);
     geos.push(g);
   }
   return merge(geos);
+}
+const RAIL_PITCH = 10.0, RAIL_SLOT = 5.23, RAIL_TOOTH = RAIL_PITCH - RAIL_SLOT;
+/** Centres of the Picatinny crossbars between x0 and x1 (centred on the span). */
+export function railTeeth(x0, x1) {
+  const count = Math.floor((x1 - x0 + RAIL_SLOT) / RAIL_PITCH);
+  const start = x0 + ((x1 - x0) - (count * RAIL_PITCH - RAIL_SLOT)) / 2;
+  return Array.from({ length: count }, (_, k) => start + k * RAIL_PITCH + RAIL_TOOTH / 2);
 }
 
 /** Group helper */
@@ -298,4 +302,46 @@ export function group(...children) {
   const g = new THREE.Group();
   children.flat().forEach((c) => c && g.add(c));
   return g;
+}
+
+/** Catmull-Rom through [[s, value], ...] (s monotonic), evaluated at s. */
+export function curve1d(pts, s) {
+  const n = pts.length, dir = Math.sign(pts[n - 1][0] - pts[0][0]) || 1;
+  let i = 0;
+  while (i < n - 2 && (s - pts[i + 1][0]) * dir > 0) i++;
+  const [s0, v0] = pts[i], [s1, v1] = pts[i + 1];
+  const t = clamp((s - s0) / (s1 - s0));
+  const slope = (a, b) => (pts[b][1] - pts[a][1]) / (pts[b][0] - pts[a][0]);
+  const m0 = (i > 0 ? slope(i - 1, i + 1) : slope(i, i + 1)) * (s1 - s0);
+  const m1 = (i < n - 2 ? slope(i, i + 2) : slope(i, i + 1)) * (s1 - s0);
+  const t2 = t * t, t3 = t2 * t;
+  return (2 * t3 - 3 * t2 + 1) * v0 + (t3 - 2 * t2 + t) * m0 + (-2 * t3 + 3 * t2) * v1 + (t3 - t2) * m1;
+}
+
+/** Skin a list of closed rings ([[x, y, z], ...], equal lengths) with optional flat end caps. */
+export function ringLoft(rings, { cap0 = true, cap1 = true } = {}) {
+  const N = rings[0].length, pos = [], idx = [];
+  rings.forEach((r) => r.forEach((p) => pos.push(...p)));
+  for (let r = 0; r < rings.length - 1; r++) for (let k = 0; k < N; k++) {
+    const a = r * N + k, b = r * N + ((k + 1) % N), c = (r + 1) * N + ((k + 1) % N), d = (r + 1) * N + k;
+    idx.push(a, b, c, a, c, d);
+  }
+  const side = new THREE.BufferGeometry();
+  side.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  side.setIndex(idx);
+  side.computeVertexNormals();
+  const geos = [side];
+  const cap = (ring, flip) => {
+    const c = ring.reduce((s, p) => [s[0] + p[0] / N, s[1] + p[1] / N, s[2] + p[2] / N], [0, 0, 0]);
+    const cp = [...c, ...ring.flat()], ci = [];
+    for (let k = 0; k < N; k++) { const a = 1 + k, b = 1 + ((k + 1) % N); if (flip) ci.push(0, b, a); else ci.push(0, a, b); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(cp, 3));
+    g.setIndex(ci);
+    g.computeVertexNormals();
+    return g;
+  };
+  if (cap0) geos.push(cap(rings[0], true));
+  if (cap1) geos.push(cap(rings[rings.length - 1], false));
+  return mergeSimple(geos);
 }

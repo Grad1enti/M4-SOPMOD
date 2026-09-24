@@ -19,6 +19,8 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true,
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.shadowMap.enabled = true; // self-shadowing: optics, rail and magwell shade each other
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMappingExposure = 1.0;
 renderer.setClearColor(0x000000, 0);
 
@@ -58,6 +60,28 @@ const ALL = reg.parts.reduce((b, p) => b.union(p.box), new THREE.Box3());
 const SIZE = ALL.getSize(new THREE.Vector3());
 const SHADOW_Y = ALL.min.y - 40;
 
+// key light casts real shadows over the whole pulled-apart layout (units are mm)
+{
+  const c = ALL.getCenter(new THREE.Vector3());
+  key.target.position.copy(c);
+  key.position.copy(c).add(new THREE.Vector3(300, 800, 600).setLength(1400));
+  scene.add(key.target);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  Object.assign(key.shadow.camera, { left: -760, right: 760, top: 760, bottom: -760, near: 200, far: 2800 });
+  key.shadow.camera.updateProjectionMatrix();
+  key.shadow.bias = -0.0003;
+  key.shadow.normalBias = 0.5;
+  key.shadow.radius = 3;
+}
+for (const p of reg.parts) for (const o of p.meshes) {
+  const mats = Array.isArray(o.material) ? o.material : [o.material];
+  const solid = mats.every((m) => !m.userData.base.transparent && m.color && m.color.getHex() !== 0x050506);
+  o.userData.castsShadow = solid;
+  o.castShadow = solid;
+  o.receiveShadow = true;
+}
+
 // soft contact shadow (canvas-generated, no external assets)
 const shadow = (() => {
   const c = document.createElement('canvas');
@@ -79,6 +103,13 @@ const shadow = (() => {
   m.position.set(ALL.getCenter(new THREE.Vector3()).x, SHADOW_Y, 0);
   m.renderOrder = -1;
   scene.add(m);
+  // the rifle's own cast shadow on the (invisible) floor
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.ShadowMaterial({ opacity: 0.12, depthWrite: false }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(0, SHADOW_Y - 0.5, 0);
+  floor.receiveShadow = true;
+  floor.renderOrder = -1;
+  scene.add(floor);
   return m;
 })();
 
@@ -345,6 +376,8 @@ window.app = {
   },
   setCategory(c) { setCategory(c); reg.updateFade(Infinity); cam.cur = cam.goal; applyCamera(); },
   setView(az, el, s) { setView(az, el, s); },
+  /** Aim the camera at a point (mm), keeping the current direction and zoom. */
+  focus(x, y, z) { cam.pan.set(x, y, z).sub(centerAt(cam.cur, state.explode)); applyCamera(); },
   setTheme: applyTheme,
   selectByName(n) { select(reg.parts.find((p) => p.name === n) || null); },
   /** Resolves once every animation (parts, fades, camera) has come to rest. */

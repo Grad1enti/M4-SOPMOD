@@ -26,7 +26,7 @@ export function buildOptics(reg) {
     // base with its cross-bolt clamp
     g.add(rboxAt(x0 + 4, x1 - 2, R - 1, R + 12, -hw + 2, hw - 2, 2, M.anodDark));
     g.add(rboxAt(x0 + 30, x0 + 44, R - 6, R + 4, -12.6, 12.6, 1, M.anodDark)); // clamp jaws around the rail
-    g.add(mesh(cylZ(5.5, 5.5, 5, 18), M.steel, [x0 + 37, R + 1, -hw - 1.5])); // cross-bolt thumb nut
+    g.add(mesh(cylZ(5.5, 5.5, 5, 18), M.phosDark, [x0 + 37, R + 1, -hw - 1.5])); // cross-bolt thumb nut
     // electronics / battery housing at the rear, with the three control buttons on its back face
     g.add(rboxAt(x0, x0 + 38, R + 10, R + 44, -hw + 1, hw - 1, 5, M.polymer));
     for (const [y, z] of [[R + 30, -8], [R + 30, 0], [R + 30, 8]]) g.add(mesh(new THREE.CylinderGeometry(3, 3, 2.4, 16), M.rubber, [x0 - 0.8, y, z], [0, 0, Math.PI / 2]));
@@ -65,7 +65,7 @@ export function buildOptics(reg) {
       rboxAt(mx0, mx1, R - 1, R + 9, -12, 12, 1.5, M.anodDark),
       rboxAt(mx0 + 18, mx1 - 6, R + 7, y - 12, -8, 8, 2, M.anodDark),
       mesh(latheX([[mx0 + 16, 16], [mx0 + 16, 21], [mx1 - 4, 21], [mx1 - 4, 16]], 36), M.anodDark, [0, y, 0]),
-      mesh(cylZ(3, 3, 30, 16), M.steel, [mx0 + 24, R + 10, 0]), // hinge pin
+      mesh(cylZ(3, 3, 30, 16), M.phosDark, [mx0 + 24, R + 10, 0]), // hinge pin
       rboxAt(mx0 + 4, mx0 + 18, R + 2, R + 12, -18, -12, 1.5, M.anodDark), // release lever
     );
     add('G33 3× magnifier (STS mount)',
@@ -82,7 +82,7 @@ export function buildOptics(reg) {
       // aperture leaf folded down flat
       rboxAt(x0 + 1, x1 - 3, R + 7, R + 11, -7.5, 7.5, 1.5, M.anodDark),
       mesh(new THREE.TorusGeometry(2.4, 0.9, 8, 18), M.anodDark, [x0 + 6, R + 11.2, 0], [Math.PI / 2, 0, 0]),
-      mesh(cylZ(4, 4, 4, 16), M.steel, [x1 - 5, R + 8, 12]), // windage knob
+      mesh(cylZ(4, 4, 4, 16), M.anodDark, [x1 - 5, R + 8, 12]), // windage knob
     );
     add('KAC folding rear sight',
       'Knight\'s Armament backup iron sight, folded flat under the magnifier. Flipped up, its aperture lines up with the front sight post through the EOTech window (absolute co-witness), so the carbine can still be aimed if the optic fails.',

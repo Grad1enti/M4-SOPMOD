@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { D, IN } from '../dims.js';
 import { M } from '../materials.js';
-import { mesh, rboxAt, latheX, extrudeXY, picatinny, tube, group, cylZ, DEG } from '../geom.js';
+import { mesh, rboxAt, latheX, extrudeXY, picatinny, railTeeth, tube, group, cylZ, DEG } from '../geom.js';
+import { decal, stick, font, railNumbers } from '../decals.js';
 import { KEY } from './bcg.js';
 
 // Barrel, front sight base / gas block and the Daniel Defense M4A1 FSP RIS II
@@ -121,9 +122,11 @@ export function buildBarrel(reg) {
     const pins = [FSB.x0 + 8, FSB.x1 - 8].map((x) => mesh(new THREE.CylinderGeometry(1.4, 1.1, 30, 10), M.steel, [x, 0, 0]));
     const lug = rboxAt(FSB.x1 - 2, FSB.x1 + 22, -19, -10, -4.4, 4.4, 1, M.phos); // bayonet lug
     const swivel = mesh(new THREE.TorusGeometry(5, 1.2, 8, 18), M.steel, [FSB.x0 + 14, -19.5, 0]);
+    // "F" stamp: this base takes the taller flat-top front sight post
+    const fMark = stick(decal(6, 7, (ctx, px) => { ctx.font = font(5, px, 800); ctx.fillText('F', 3 * px, 3.7 * px); }), '+z', (FSB.x0 + FSB.x1) / 2, 34, 5.56);
     add('Front sight base / gas block',
       'The M4\'s forged "A-frame" front sight base doubles as the gas block: it is pinned to the barrel over the gas port and the gas tube plugs into its back. It also carries the bayonet lug and a sling swivel. The RIS II FSP rail has a slot so it can stay on.',
-      group(ring, tower, ...ears, detent, ...pins, lug, swivel), [85, 105, 0], 0.45, true);
+      group(ring, tower, ...ears, detent, ...pins, lug, swivel, fMark), [85, 105, 0], 0.45, true);
   }
 
   // --- RIS II upper half ---
@@ -134,6 +137,8 @@ export function buildBarrel(reg) {
       ...[-1, 1].map((sd) => mesh(extrudeZY(clip(wall(true), 0, sd * 8, sd > 0), FSB.slot0, FSB.slot1), M.fdeMetal)),
       risRail('top', RIS.x0, FSB.slot0 - 2, M.fdeMetal),
       risRail('top', FSB.slot1 + 2, RIS.x1, M.fdeMetal),
+      railNumbers(railTeeth(RIS.x0, FSB.slot0 - 2), RIS.top, { first: 1, color: 0xd8d2c6 }),
+      railNumbers(railTeeth(FSB.slot1 + 2, RIS.x1), RIS.top, { first: 1 + railTeeth(RIS.x0, FSB.slot0 - 2).length + 5, color: 0xd8d2c6 }),
     );
     add('RIS II rail, upper half',
       'Daniel Defense M4A1 FSP RIS II in flat dark earth, the Block II rail. The top MIL-STD-1913 rail lines up with the receiver\'s, giving one continuous rail for optics and lasers, and is slotted around the front sight base. 6061-T6 aluminium, 12.25 in (311 mm) long.',

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { D } from '../dims.js';
 import { M } from '../materials.js';
-import { sweep, mesh, rboxAt, latheX, extrudeXY, picatinny, group, arc } from '../geom.js';
+import { sweep, mesh, rboxAt, latheX, extrudeXY, picatinny, railTeeth, group, arc } from '../geom.js';
+import { railNumbers } from '../decals.js';
 
 // M4A1 flat-top (A4-style) upper receiver. Origin: bore axis at the front face.
 const B = D.parting, W = D.upperHW, T = D.railBase, DECK = 8;
@@ -48,6 +49,7 @@ export function buildUpper(reg) {
     const g = group(new THREE.Mesh(shellGeo, [M.anod, M.inside]));
     // integral MIL-STD-1913 rail
     g.add(mesh(picatinny(D.upperRear + 1, -1), M.anod, [0, T, 0]));
+    g.add(railNumbers(railTeeth(D.upperRear + 1, -1), D.railTop));
     // threaded front collar the barrel nut screws onto
     g.add(mesh(latheX([[-10, 12.6], [-10, 15.1], [0, 15.1], [0, 12.6]], 40), M.anod));
     // front face and rear face (rear is open for the carrier and charging handle)

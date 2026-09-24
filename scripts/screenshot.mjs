@@ -1,5 +1,5 @@
 // Headless screenshot of the built single file.
-// usage: node scripts/screenshot.mjs out.png [explode=0.5] [cat=upper] [view=az,el,scale] [select=Part name] [w=412] [h=915] [theme=dark]
+// usage: node scripts/screenshot.mjs out.png [explode=0.5] [cat=upper] [view=az,el,zoom] [focus=x,y,z] [select=Part name] [w=412] [h=915] [theme=dark] [reduced=1]
 import { chromium } from 'playwright-core';
 import { resolve } from 'node:path';
 
@@ -26,6 +26,7 @@ await page.evaluate(async (o) => {
   if (o.cat) a.setCategory(o.cat);
   if (o.explode) a.setExplode(+o.explode, true);
   if (o.view) a.setView(...o.view.split(',').map(Number));
+  if (o.focus) a.focus(...o.focus.split(',').map(Number));
   if (o.select) a.selectByName(o.select);
   await a.settle();
 }, opt);
