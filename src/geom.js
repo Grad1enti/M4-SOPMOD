@@ -173,6 +173,7 @@ export function mesh(geo, mat, pos, rot) {
 export const rbox = (w, h, d, r = 1, seg = 2) => new RoundedBoxGeometry(w, h, d, seg, Math.min(r, w / 2, h / 2, d / 2) * 0.999);
 /** Rounded box given by its min / max corners. */
 export function rboxAt(x0, x1, y0, y1, z0, z1, r = 1, mat) {
+  if (x1 <= x0 || y1 <= y0 || z1 <= z0) throw new Error(`rboxAt: inverted extents ${[x0, x1, y0, y1, z0, z1]}`);
   return mesh(rbox(x1 - x0, y1 - y0, z1 - z0, r), mat, [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2]);
 }
 

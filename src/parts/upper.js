@@ -70,9 +70,9 @@ export function buildUpper(reg) {
   // --- Charging handle ---
   {
     const y0 = 16.8, y1 = 23.4, x = D.upperRear;
-    const top = [ // outline seen from above, [x, z]
-      [-4, 6], [x + 1, 6], [x - 4, 7], [x - 7, 15], [x - 9, 19.5], [x - 14, 19.5], [x - 15, 15], [x - 15, -15],
-      [x - 14, -19.5], [x - 9, -19.5], [x - 7, -15], [x - 4, -7], [x + 1, -6], [-4, -6],
+    const top = [ // T-handle outline seen from above, [x, z]
+      [x + 3, 6.1], [x - 4, 7], [x - 7, 15], [x - 9, 19.5], [x - 14, 19.5], [x - 15, 15], [x - 15, -15],
+      [x - 14, -19.5], [x - 9, -19.5], [x - 7, -15], [x - 4, -7], [x + 3, -6.1],
     ];
     const handle = extrudeXY(top, y1 - y0, { bevel: 1.2 });
     handle.rotateX(Math.PI / 2);
@@ -81,8 +81,12 @@ export function buildUpper(reg) {
     const latch = extrudeXY([[x - 2, -18], [x - 12, -18], [x - 15, -25], [x - 12, -27], [x - 5, -24]], 4.5, { bevel: 0.8 });
     latch.rotateX(Math.PI / 2);
     latch.translate(0, (y0 + y1) / 2, 0);
-    // gas-key channel along the underside of the arm
-    const arm = rboxAt(-150, -6, y0 - 4.5, y0 + 1, -5.2, 5.2, 1.2, M.anod);
+    // the arm is a U-channel: the bolt carrier's gas key rides inside it
+    const arm = group(
+      rboxAt(x + 2, -9, 20.8, y1, -6.1, 6.1, 0.8, M.anod),
+      rboxAt(x + 2, -40, 14.4, y1, 4.9, 6.1, 0.5, M.anod),
+      rboxAt(x + 2, -40, 14.4, y1, -6.1, -4.9, 0.5, M.anod),
+    );
     add('Charging handle',
       'Pulled straight back to cock the rifle and chamber the first round. The latch on its left side clips into the upper so recoil cannot bounce it open, and it stays still while firing: the bolt carrier\'s gas key rides in the channel under its arm.',
       group(mesh(handle, M.anod), mesh(latch, M.anodDark), arm), [-60, 215, 0], 0.4);

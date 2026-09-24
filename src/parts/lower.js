@@ -218,25 +218,31 @@ export function buildLower(reg) {
       group(buffer, bumper, spring), [-75, 70, 0], 0.3);
   }
 
-  // --- SOPMOD buttstock (FDE) ---
+  // --- B5 Enhanced SOPMOD buttstock (FDE) ---
   {
-    const xr = D.butt + 12, xf = D.butt + 188;
+    const xr = D.butt + 12, xf = D.butt + 188; // 7.4 in body incl. pad, 4.9 in tall
     const prof = spline2([
       [xr, 26], [xr + 40, 27.5], [xr + 90, 25.5], [xr + 140, 21.5], [xf - 6, 19], [xf, 14],
-      [xf, -18], [xf - 4, -25], [xf - 24, -30], [xf - 60, -40], [xf - 105, -62], [xf - 145, -86], [xr + 8, -100], [xr, -101], [xr - 0.5, -40],
+      [xf, -18], [xf - 4, -25], [xf - 24, -30], [xf - 60, -40], [xf - 105, -62], [xf - 145, -86], [xr + 8, -98], [xr, -99], [xr - 0.5, -40],
     ], 110, true, 0.35);
-    const body = mesh(extrudeXY(prof, 31, { bevel: 5, seg: 4 }), M.fde);
+    const body = mesh(extrudeXY(prof, 29, { bevel: 5, seg: 4 }), M.fde);
+    // storage compartments moulded into both sides, each with a screw cap at the front
     const pods = [-1, 1].map((sd) => group(
-      mesh(latheX([[xf - 118, 0], [xf - 116, 6], [xf - 112, 9.8], [xf - 104, 11.3], [xf - 6, 11.3], [xf - 6, 0]], 28), M.fde, [0, 1, sd * 16.5]),
-      mesh(latheX([[xf - 6, 0], [xf - 6, 11.8], [xf + 3, 11.8], [xf + 4, 10.5], [xf + 4, 0]], 28), M.polymer, [0, 1, sd * 16.5]),
+      mesh(latheX([[xf - 112, 0], [xf - 110, 5], [xf - 104, 8.6], [xf - 94, 10], [xf - 4, 10], [xf - 4, 0]], 28), M.fde, [0, 0, sd * 13.5]),
+      mesh(latheX([[xf - 4, 0], [xf - 4, 10.2], [xf + 2, 10.2], [xf + 3, 9], [xf + 3, 0]], 28), M.fdeDark, [0, 0, sd * 13.5]),
+    ));
+    // QD sling sockets on both sides, just behind the latch
+    const qd = [-1, 1].map((sd) => group(
+      mesh(cylZ(5.8, 5.8, 3, 24), M.phos, [xf - 22, -26, sd * 14.6]),
+      mesh(cylZ(3.2, 3.2, 3.2, 16), M.hole, [xf - 22, -26, sd * 14.7]),
     ));
     const pad = mesh(extrudeXY(spline2([
-      [D.butt, 29], [xr + 1, 29], [xr + 1, -104], [D.butt, -104], [D.butt - 1, -40],
-    ], 60, true, 0.25), 35, { bevel: 3 }), M.rubber);
-    const latch = rboxAt(xf - 30, xf - 6, -33.5, -24, -4.5, 4.5, 1.5, M.polymer);
+      [D.butt, 29], [xr + 1, 29], [xr + 1, -102], [D.butt, -102], [D.butt - 1, -40],
+    ], 60, true, 0.25), 33, { bevel: 3 }), M.rubber);
+    const latch = rboxAt(xf - 34, xf - 8, -33.5, -24, -4.5, 4.5, 1.5, M.fdeDark);
     const bore = mesh(new THREE.CircleGeometry(D.tubeR + 0.3, 32), M.hole, [xf + 0.05, 0, 0], [0, Math.PI / 2, 0]);
-    add('SOPMOD buttstock (FDE)',
-      'Crane / LMT SOPMOD collapsible stock in flat dark earth. It slides along the buffer tube; fully extended the carbine is 838 mm (33 in) long, collapsed 756 mm (29.75 in). The two sealed pods on its sides carry spare batteries for the lights and lasers.',
-      group(body, ...pods, pad, latch, bore), [-120, -20, 0], 0.2, true);
+    add('B5 Enhanced SOPMOD stock (FDE)',
+      'The Block II buttstock, in flat dark earth: 7.4 in long and 4.9 in tall. It slides along the buffer tube; fully extended the carbine is 838 mm (33 in) long, collapsed 756 mm (29.75 in). The two moulded compartments hold three CR123 batteries each, and there are QD sling sockets on both sides.',
+      group(body, ...pods, ...qd, pad, latch, bore), [-120, -20, 0], 0.2, true);
   }
 }

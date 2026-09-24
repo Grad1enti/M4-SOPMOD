@@ -4,6 +4,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { Registry, CATEGORIES, catById } from './registry.js';
 import { buildUpper } from './parts/upper.js';
 import { buildLower } from './parts/lower.js';
+import { buildBCG } from './parts/bcg.js';
 
 const $ = (id) => document.getElementById(id);
 const reducedMQ = matchMedia('(prefers-reduced-motion: reduce)');
@@ -41,6 +42,7 @@ const reg = new Registry(scene);
 reg.root.add(reg.guides);
 buildUpper(reg);
 buildLower(reg);
+buildBCG(reg);
 
 // assembled and fully pulled-apart bounding boxes drive framing and the contact shadow
 const LIFT = 120; // the rifle rises as it comes apart so parts pushed down stay above the shadow
