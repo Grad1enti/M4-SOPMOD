@@ -44,19 +44,13 @@ buildUpper(reg);
 buildLower(reg);
 buildBCG(reg);
 
-// assembled and fully pulled-apart bounding boxes drive framing and the contact shadow
+// Each part's assembled bounding box; framing and the contact shadow derive from these.
 const LIFT = 120; // the rifle rises as it comes apart so parts pushed down stay above the shadow
 reg.root.updateMatrixWorld(true);
-const BOX0 = new THREE.Box3(), BOX1 = new THREE.Box3();
-for (const p of reg.parts) {
-  const b = new THREE.Box3().setFromObject(p.outer);
-  BOX0.union(b);
-  BOX1.union(b.clone().translate(p.dir).translate(new THREE.Vector3(0, LIFT, 0)));
-}
-BOX1.union(BOX0);
-const C0 = BOX0.getCenter(new THREE.Vector3()), C1 = BOX1.getCenter(new THREE.Vector3());
-const SIZE = BOX0.getSize(new THREE.Vector3());
-const SHADOW_Y = BOX0.min.y - 40;
+for (const p of reg.parts) p.box = new THREE.Box3().setFromObject(p.outer);
+const ALL = reg.parts.reduce((b, p) => b.union(p.box), new THREE.Box3());
+const SIZE = ALL.getSize(new THREE.Vector3());
+const SHADOW_Y = ALL.min.y - 40;
 
 // soft contact shadow (canvas-generated, no external assets)
 const shadow = (() => {
@@ -76,7 +70,7 @@ const shadow = (() => {
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }),
   );
   m.rotation.x = -Math.PI / 2;
-  m.position.set(C0.x, SHADOW_Y, 0);
+  m.position.set(ALL.getCenter(new THREE.Vector3()).x, SHADOW_Y, 0);
   m.renderOrder = -1;
   scene.add(m);
   return m;
@@ -86,11 +80,16 @@ const shadow = (() => {
 const state = { explodeTarget: 0, explode: 0, cat: 'all', selected: null, dirty: true };
 
 // ---------- camera framing ----------
-// The camera distance and target blend from the assembled fit to the pulled-apart
-// fit, so the exploded parts fill the screen on both phones and desktops.
-let zoom = 1; // user zoom relative to the fitted distance
+// The camera target and distance blend from a fit of the assembled rifle to a fit
+// of the pulled-apart parts, so the exploded view fills the screen on phones and
+// desktops. Picking a group re-fits smoothly to that group (plus the ghosted outline).
 const VIEW = { az: 24, el: 14 };
-const fit = { d0: 1000, d1: 1000 };
+const cam = {
+  zoom: 1, // user zoom relative to the fitted distance
+  pan: new THREE.Vector3(), // user pan relative to the fitted centre
+  goal: null, cur: null, // { c0, c1, d0, d1 } fitted centres / distances, assembled and exploded
+  busy: false, // true while the user is dragging
+};
 function viewport() {
   const w = innerWidth, h = innerHeight;
   const panel = document.querySelector('.panel').getBoundingClientRect();
@@ -98,11 +97,10 @@ function viewport() {
   const free = Math.max(200, panel.top - top.bottom);
   return { w, h, free, offset: (h - (top.bottom + free / 2)) - h / 2 };
 }
-/** Distance that fits `box` (seen from az / el, radians) into the free area. */
-function fitDistance(box, az, el) {
+/** Distance that fits `box` seen along `dir` (unit vector from target to camera) into the free area. */
+function fitDistance(box, dir) {
   const { free } = viewport();
   const c = box.getCenter(new THREE.Vector3());
-  const dir = new THREE.Vector3(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az));
   const right = new THREE.Vector3(0, 1, 0).cross(dir).normalize();
   const up = dir.clone().cross(right);
   let hx = 0, hy = 0, hz = 0;
@@ -114,22 +112,49 @@ function fitDistance(box, az, el) {
   const th = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.aspect;
   return Math.max(hx / th, hy / tv) * 1.1 + hz;
 }
-const fitAt = (t) => THREE.MathUtils.lerp(fit.d0, fit.d1, t);
-const centerAt = (t) => C0.clone().lerp(C1, t);
-function setView(az = VIEW.az, el = VIEW.el, scale = 1) {
+/** Fit for the current category, seen along `dir`. */
+function computeFit(dir) {
+  const b0 = new THREE.Box3(), b1 = new THREE.Box3();
+  for (const p of reg.parts) {
+    const active = state.cat === 'all' || p.cat === state.cat;
+    if (!active && !p.shell) continue;
+    b0.union(p.box);
+    // pulled apart, frame just the active group; the ghosted outline may run off-screen
+    if (active) b1.union(p.box.clone().translate(p.dir));
+  }
+  b1.translate(new THREE.Vector3(0, LIFT, 0));
+  return {
+    c0: b0.getCenter(new THREE.Vector3()), c1: b1.getCenter(new THREE.Vector3()),
+    d0: fitDistance(b0, dir), d1: fitDistance(b1, dir),
+  };
+}
+const viewDir = (az, el) => {
   const a = THREE.MathUtils.degToRad(az), e = THREE.MathUtils.degToRad(el);
-  fit.d0 = fitDistance(BOX0, a, e);
-  fit.d1 = fitDistance(BOX1, a, e);
-  zoom = scale;
-  const d = fitAt(state.explode) * zoom;
-  controls.target.copy(centerAt(state.explode));
-  camera.position.set(
-    controls.target.x + d * Math.cos(e) * Math.sin(a),
-    controls.target.y + d * Math.sin(e),
-    controls.target.z + d * Math.cos(e) * Math.cos(a),
-  );
-  controls.update();
+  return new THREE.Vector3(Math.cos(e) * Math.sin(a), Math.sin(e), Math.cos(e) * Math.cos(a));
+};
+const currentDir = () => camera.position.clone().sub(controls.target).normalize();
+const fitAt = (f, t) => THREE.MathUtils.lerp(f.d0, f.d1, t);
+const centerAt = (f, t) => f.c0.clone().lerp(f.c1, t);
+/** Place the camera from the current fit, explode amount, user zoom / pan, keeping its direction. */
+function applyCamera(dir = currentDir()) {
+  controls.target.copy(centerAt(cam.cur, state.explode)).add(cam.pan);
+  camera.position.copy(controls.target).addScaledVector(dir, fitAt(cam.cur, state.explode) * cam.zoom);
   state.dirty = true;
+}
+function setView(az = VIEW.az, el = VIEW.el, scale = 1) {
+  const dir = viewDir(az, el);
+  cam.goal = computeFit(dir);
+  cam.cur = { ...cam.goal, c0: cam.goal.c0.clone(), c1: cam.goal.c1.clone() };
+  cam.zoom = scale;
+  cam.pan.set(0, 0, 0);
+  applyCamera(dir);
+  controls.update();
+}
+/** Re-fit for a new category; the frame loop eases cam.cur towards it. */
+function refit() {
+  if (!cam.cur) return;
+  cam.goal = computeFit(currentDir());
+  if (reduced) { cam.cur = cam.goal; applyCamera(); }
 }
 function resize() {
   const { w, h, offset } = viewport();
@@ -160,6 +185,7 @@ function setCategory(cat) {
   state.cat = cat;
   for (const b of chips.children) b.setAttribute('aria-checked', String(b.dataset.cat === cat));
   reg.setFilter(cat);
+  refit();
   if (reduced) reg.updateFade(Infinity);
   if (state.selected && reg.parts[state.selected.id].alphaTarget !== 1) select(null);
   const n = reg.parts.filter((p) => p.alphaTarget === 1).length;
@@ -231,7 +257,13 @@ reducedMQ.addEventListener('change', (e) => { reduced = e.matches; controls.enab
 
 // ---------- loop ----------
 let lastT = performance.now();
-controls.addEventListener('end', () => { zoom = camera.position.distanceTo(controls.target) / fitAt(state.explode); });
+/** Remember the user's zoom and pan relative to the fit, so pulling apart keeps them. */
+function captureUser() {
+  cam.zoom = camera.position.distanceTo(controls.target) / fitAt(cam.cur, state.explode);
+  cam.pan.copy(controls.target).sub(centerAt(cam.cur, state.explode));
+}
+controls.addEventListener('start', () => { cam.busy = true; });
+controls.addEventListener('end', () => { cam.busy = false; captureUser(); });
 let lastExplode = -1;
 function frame() {
   const now = performance.now();
@@ -242,20 +274,32 @@ function frame() {
   if (Math.abs(state.explode - state.explodeTarget) < 1e-4) state.explode = state.explodeTarget;
   // parts follow the slider directly; they only animate on their own when the
   // filter changes (ghosted parts glide back into the outline)
-  if (reg.update(state.explode, reduced ? Infinity : dt)) state.dirty = true;
+  let animating = false;
+  if (reg.update(state.explode, reduced ? Infinity : dt)) { state.dirty = true; animating = true; }
+  // ease the fit towards the current category's fit
+  let moved = state.explode !== lastExplode;
+  if (cam.goal !== cam.cur) {
+    const k = Math.min(1, dt * 5);
+    const c = cam.cur, g = cam.goal;
+    c.c0.lerp(g.c0, k); c.c1.lerp(g.c1, k);
+    c.d0 += (g.d0 - c.d0) * k; c.d1 += (g.d1 - c.d1) * k;
+    if (c.c0.distanceTo(g.c0) + c.c1.distanceTo(g.c1) + Math.abs(g.d0 - c.d0) + Math.abs(g.d1 - c.d1) < 0.05) cam.cur = cam.goal;
+    moved = true;
+  }
+  if (moved && !cam.busy) applyCamera();
+  animating ||= moved;
   if (state.explode !== lastExplode) {
     reg.root.position.y = state.explode * LIFT;
-    // follow with the camera: shift the target with the parts' centre and dolly to the blended fit
-    const off = camera.position.clone().sub(controls.target);
-    controls.target.add(centerAt(state.explode).sub(centerAt(Math.max(0, lastExplode))));
-    off.setLength(fitAt(state.explode) * zoom);
-    camera.position.copy(controls.target).add(off);
     shadow.material.opacity = 1 - state.explode * 0.5;
     lastExplode = state.explode;
     state.dirty = true;
   }
-  if (reg.updateFade(reduced ? Infinity : dt)) state.dirty = true;
-  if (controls.update()) state.dirty = true;
+  if (reg.updateFade(reduced ? Infinity : dt)) { state.dirty = true; animating = true; }
+  state.idleFrames = animating || state.explode !== state.explodeTarget ? 0 : (state.idleFrames || 0) + 1;
+  if (controls.update()) {
+    state.dirty = true;
+    if (!cam.busy) captureUser(); // damping keeps moving the camera after the drag ends
+  }
   if (state.dirty) {
     renderer.render(scene, camera);
     state.dirty = false;
@@ -273,10 +317,15 @@ window.app = {
     if (instant) state.explode = v;
     state.dirty = true;
   },
-  setCategory(c) { setCategory(c); reg.updateFade(Infinity); },
+  setCategory(c) { setCategory(c); reg.updateFade(Infinity); cam.cur = cam.goal; applyCamera(); },
   setView(az, el, s) { setView(az, el, s); },
   setTheme: applyTheme,
   selectByName(n) { select(reg.parts.find((p) => p.name === n) || null); },
-  settle: () => new Promise((r) => setTimeout(r, 400)),
+  /** Resolves once every animation (parts, fades, camera) has come to rest. */
+  settle: () => new Promise((r) => {
+    const t0 = performance.now();
+    const check = () => (state.idleFrames > 3 || performance.now() - t0 > 8000 ? r() : setTimeout(check, 50));
+    setTimeout(check, 100);
+  }),
   parts: () => reg.parts.map((p) => `${p.cat}: ${p.name}`),
 };

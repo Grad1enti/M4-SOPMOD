@@ -105,7 +105,7 @@ export function buildBCG(reg) {
     const fp = latheX([[BF - 84, 0], [BF - 84, 2.8], [BF - 56, 2.8], [BF - 55, 4.4], [BF - 52.6, 4.4], [BF - 51.6, 2.4], [BF - 4, 1.9], [BF - 1, 1.1], [BF - 0.4, 0]], 18);
     add('Firing pin',
       'Floating pin that runs through the bolt. The hammer strikes its rear end and the tip hits the primer; the collar keeps it captive in the carrier.',
-      group(mesh(fp, M.chrome)), [-150, 300, 0], 0.6);
+      group(mesh(fp, M.chrome)), [-205, 300, 0], 0.6);
   }
 
   // --- Firing pin retaining pin ---
@@ -117,6 +117,6 @@ export function buildBCG(reg) {
     g.rotation.x = 18 * DEG;
     add('Firing pin retaining pin',
       'A split cotter pin pushed in from the left side of the carrier. It traps the firing pin, and is the one part of the bolt carrier group that is easy to lose.',
-      g, [-60, 300, -45], 0.7);
+      g, [-40, 350, -10], 0.7);
   }
 }
