@@ -1,13 +1,43 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { clamp } from './geom.js';
+
+/**
+ * Bake every mesh of a part that shares a material into one mesh, so a part
+ * costs one draw call per material instead of one per sub-shape.
+ */
+function mergeByMaterial(outer) {
+  outer.updateMatrixWorld(true);
+  const inv = outer.matrixWorld.clone().invert();
+  const buckets = new Map();
+  outer.traverse((o) => {
+    if (!o.isMesh || Array.isArray(o.material)) return;
+    if (!buckets.has(o.material)) buckets.set(o.material, []);
+    buckets.get(o.material).push(o);
+  });
+  for (const [mat, meshes] of buckets) {
+    if (meshes.length < 2) continue;
+    const geos = meshes.map((m) => {
+      const g = (m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone());
+      for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+      if (!g.attributes.normal) g.computeVertexNormals();
+      g.clearGroups();
+      return g.applyMatrix4(inv.clone().multiply(m.matrixWorld));
+    });
+    const merged = mergeGeometries(geos, false);
+    if (!merged) continue;
+    for (const m of meshes) m.removeFromParent();
+    outer.add(new THREE.Mesh(merged, mat));
+  }
+}
 
 export const CATEGORIES = [
   { id: 'upper', label: 'Upper receiver', color: '#4f86c6' },
-  { id: 'lower', label: 'Lower & stock', color: '#d9902b' },
+  { id: 'lower', label: 'Lower receiver & stock', color: '#d9902b' },
   { id: 'bcg', label: 'Bolt carrier group', color: '#d5483e' },
-  { id: 'barrel', label: 'Barrel & rail', color: '#8b62d9' },
+  { id: 'barrel', label: 'Barrel & handguard', color: '#8b62d9' },
   { id: 'optics', label: 'Optics & sights', color: '#1ea386' },
-  { id: 'sopmod', label: 'SOPMOD kit', color: '#c0507e' },
+  { id: 'sopmod', label: 'SOPMOD accessories', color: '#c0507e' },
 ];
 export const catById = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
 
@@ -41,6 +71,7 @@ export class Registry {
     outer.add(object);
     outer.name = name;
     this.root.add(outer);
+    mergeByMaterial(outer);
     const part = {
       id: this.parts.length, name, desc, cat, outer, shell,
       base: new THREE.Vector3(...explode), // authored offset
@@ -62,7 +93,7 @@ export class Registry {
       }
       return clones.get(mat);
     };
-    object.traverse((o) => {
+    outer.traverse((o) => {
       if (!o.isMesh) return;
       o.material = Array.isArray(o.material) ? o.material.map(own) : own(o.material);
       o.userData.part = part;

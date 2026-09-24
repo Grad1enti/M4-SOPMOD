@@ -7,6 +7,7 @@ import { buildLower } from './parts/lower.js';
 import { buildBCG } from './parts/bcg.js';
 import { buildBarrel } from './parts/barrel.js';
 import { buildOptics } from './parts/optics.js';
+import { buildSOPMOD } from './parts/sopmod.js';
 
 const $ = (id) => document.getElementById(id);
 const reducedMQ = matchMedia('(prefers-reduced-motion: reduce)');
@@ -47,6 +48,7 @@ buildLower(reg);
 buildBCG(reg);
 buildBarrel(reg);
 buildOptics(reg);
+buildSOPMOD(reg);
 
 // Each part's assembled bounding box; framing and the contact shadow derive from these.
 const LIFT = 120; // the rifle rises as it comes apart so parts pushed down stay above the shadow
@@ -352,4 +354,5 @@ window.app = {
     setTimeout(check, 100);
   }),
   parts: () => reg.parts.map((p) => `${p.cat}: ${p.name}`),
+  info: () => ({ ...renderer.info.render, geometries: renderer.info.memory.geometries }),
 };
