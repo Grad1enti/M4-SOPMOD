@@ -1,0 +1,526 @@
+<title>Права кухня 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-screen 3D scene; title sheet top-left, part readout top-right, control strip along the bottom */
+:root {
+  --bg: #e9e7e1;
+  --scene: #e4e2dc;
+  --panel: rgba(251, 251, 248, 0.92);
+  --ink: #1d2224;
+  --muted: #5d6662;
+  --rule: #c9cdc6;
+  --accent: #1f6f8b;
+  --accent-ink: #ffffff;
+  --label-bg: rgba(255, 255, 255, 0.9);
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121516; --scene: #1a1f21; --panel: rgba(27, 32, 34, 0.92); --ink: #e6e9e5;
+    --muted: #9aa49f; --rule: #364042; --accent: #5fb3cf; --accent-ink: #0d1517;
+    --label-bg: rgba(20, 24, 26, 0.88); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121516; --scene: #1a1f21; --panel: rgba(27, 32, 34, 0.92); --ink: #e6e9e5;
+  --muted: #9aa49f; --rule: #364042; --accent: #5fb3cf; --accent-ink: #0d1517;
+  --label-bg: rgba(20, 24, 26, 0.88); color-scheme: dark;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 14px;
+  overflow: hidden; padding-block: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+#app { position: fixed; inset: 0; background: var(--scene); touch-action: none; }
+#app canvas { display: block; }
+#labels { position: fixed; inset: 0; pointer-events: none; }
+.dim {
+  font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums;
+  background: var(--label-bg); color: var(--ink); padding: 1px 5px; border-radius: 2px;
+  border: 1px solid var(--rule); white-space: nowrap;
+}
+.panel { background: var(--panel); border: 1px solid var(--rule); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.hud {
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: max(16px, env(safe-area-inset-left, 0px));
+  padding: 10px 14px; max-width: min(360px, calc(100vw - 32px)); display: grid; gap: 2px;
+}
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 600; font-size: 22px; line-height: 1.15; margin: 0; }
+.hint { color: var(--muted); font-size: 12px; margin: 2px 0 0; }
+.info {
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px);
+  right: max(16px, env(safe-area-inset-right, 0px));
+  padding: 10px 14px; width: 250px; display: grid; gap: 4px;
+}
+.info .pos { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.info .name { font-family: var(--display); font-weight: 600; font-size: 17px; line-height: 1.2; }
+.info dl { margin: 4px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+.info dt { color: var(--muted); font-size: 12px; }
+.info dd { margin: 0; font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+.bar {
+  position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+  margin: 0 auto; max-width: max-content;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 10px;
+}
+.group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.group > .lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.sep { width: 1px; align-self: stretch; background: var(--rule); }
+button {
+  font: 500 13px var(--body); cursor: pointer; border-radius: 3px; padding: 6px 10px;
+  border: 1px solid var(--rule); background: transparent; color: var(--ink);
+}
+button:hover { border-color: var(--accent); }
+button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[disabled] { opacity: .5; cursor: default; }
+.sw { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid var(--rule); }
+.sw[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--panel) inset; background-clip: padding-box; }
+.status { font-size: 12px; color: var(--muted); min-height: 1em; }
+.msg { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted); }
+@media (max-width: 720px) {
+  .info { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); width: auto; left: max(16px, env(safe-area-inset-left, 0px)); }
+  .hud .hint { display: none; }
+  .bar { gap: 6px 10px; }
+  .sep { display: none; }
+  .dim { font-size: 10px; padding: 0 3px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div id="app"></div>
+<div id="labels"></div>
+
+<header class="hud panel">
+  <div class="eyebrow">3D модел · мерки в мм</div>
+  <h1>Права кухня – долен ред</h1>
+  <p class="hint">Влачете за въртене, колелце или два пръста за мащаб. Посочете детайл, за да видите размерите му.</p>
+</header>
+
+<aside class="info panel" id="info" hidden>
+  <div class="pos" id="info-pos"></div>
+  <div class="name" id="info-name"></div>
+  <dl>
+    <dt>Ш × В × Д</dt><dd id="info-size"></dd>
+    <dt>Материал</dt><dd id="info-mat"></dd>
+    <dt>От пода</dt><dd id="info-y"></dd>
+  </dl>
+</aside>
+
+<nav class="bar panel" aria-label="Управление на изгледа">
+  <div class="group">
+    <button id="t-open" type="button" aria-pressed="false">Отвори</button>
+    <button id="t-xray" type="button" aria-pressed="false">Прозрачни фронтове</button>
+    <button id="t-dims" type="button" aria-pressed="true">Размери</button>
+    <button id="t-ceil" type="button" aria-pressed="true">Таван</button>
+  </div>
+  <div class="sep"></div>
+  <div class="group" role="group" aria-label="Изглед">
+    <span class="lbl">Изглед</span>
+    <button id="v-persp" type="button" data-view="persp">3D</button>
+    <button id="v-front" type="button" data-view="front">Отпред</button>
+    <button id="v-top" type="button" data-view="top">Отгоре</button>
+    <button id="v-side" type="button" data-view="side">Отстрани</button>
+  </div>
+  <div class="sep"></div>
+  <div class="group" role="group" aria-label="Цвят на фронтовете" id="sw-front">
+    <span class="lbl">Фронтове</span>
+  </div>
+  <div class="group" role="group" aria-label="Цвят на плота" id="sw-plot">
+    <span class="lbl">Плот</span>
+  </div>
+  <div class="sep"></div>
+  <div class="group">
+    <button id="dl" class="primary" type="button">Изтегли DXF</button>
+    <span class="status" id="status" role="status"></span>
+  </div>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+
+const app = document.getElementById("app");
+const fail = (text) => {
+  const m = document.createElement("div");
+  m.className = "msg";
+  m.textContent = text;
+  document.body.appendChild(m);
+};
+
+let model;
+try {
+  const r = await fetch("kuhnia3d.json");
+  if (!r.ok) throw new Error(r.status);
+  model = await r.json();
+} catch (e) {
+  fail("Моделът не можа да се зареди. Презаредете страницата.");
+  throw e;
+}
+
+const L = model.room.length, H = model.room.height, DEPTH = 2400;
+
+// --- Renderer, scene, camera ---------------------------------------------
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+} catch (e) {
+  fail("Браузърът не поддържа WebGL, затова 3D моделът не може да се покаже.");
+  throw e;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+app.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer({ element: document.getElementById("labels") });
+
+const scene = new THREE.Scene();
+const readVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const applyTheme = () => { scene.background = new THREE.Color(readVar("--scene") || "#e4e2dc"); };
+applyTheme();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+const camera = new THREE.PerspectiveCamera(40, 1, 10, 60000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxDistance = 16000;
+controls.minDistance = 300;
+
+// Each view: direction from the target, the area (w × h, mm) that must fit, field of view.
+// Front, top and side use a narrow lens so they read almost like orthographic drawings.
+const VIEWS = {
+  persp: { dir: [2550, 850, 4050], target: [1750, 1100, 250], w: 4400, h: 2900, fov: 40 },
+  front: { dir: [0, 0, 1], target: [L / 2, 1300, 300], w: 4300, h: 2900, fov: 18 },
+  top: { dir: [0, 1, 0.0001], target: [L / 2, 0, 450], w: 5400, h: 2000, fov: 18 },
+  side: { dir: [1, 0, 0], target: [L, 1300, 500], w: 1700, h: 2900, fov: 18 },
+};
+function viewPose(name) {
+  const v = VIEWS[name];
+  const fit = Math.max(v.h, v.w / camera.aspect) / (2 * Math.tan(THREE.MathUtils.degToRad(v.fov / 2)));
+  const target = new THREE.Vector3(...v.target);
+  const pos = target.clone().add(new THREE.Vector3(...v.dir).normalize().multiplyScalar(fit * 1.12));
+  return { pos, target, fov: v.fov };
+}
+
+// --- Lights ---------------------------------------------------------------
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb9b2a6, 1.7));
+const sun = new THREE.DirectionalLight(0xffffff, 1.9);
+sun.position.set(2600, 3800, 3400);
+sun.target.position.set(1900, 600, 300);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -3200, right: 3200, top: 3200, bottom: -3200, near: 500, far: 12000 });
+sun.shadow.bias = -0.0004;
+scene.add(sun, sun.target);
+const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+fill.position.set(-1500, 1500, 3000);
+scene.add(fill);
+
+// --- Room (single-sided, so it opens up when you orbit outside) -------------
+function floorTexture() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const g = c.getContext("2d");
+  g.fillStyle = "#cfc8bb"; g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = "#b8b0a2"; g.lineWidth = 3; g.strokeRect(0, 0, 256, 256);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(L / 600, DEPTH / 600);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const wallMat = new THREE.MeshStandardMaterial({ color: 0xeceae4, roughness: 0.95 });
+const roomPlane = (w, h, mat, pos, rot) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  m.position.set(...pos);
+  m.rotation.set(...rot);
+  m.receiveShadow = true;
+  scene.add(m);
+  return m;
+};
+roomPlane(L, H, wallMat, [L / 2, H / 2, 0], [0, 0, 0]);
+roomPlane(DEPTH, H, wallMat, [0, H / 2, DEPTH / 2], [0, Math.PI / 2, 0]);
+roomPlane(DEPTH, H, wallMat, [L, H / 2, DEPTH / 2], [0, -Math.PI / 2, 0]);
+roomPlane(L, DEPTH, new THREE.MeshStandardMaterial({ map: floorTexture(), roughness: 0.9 }),
+  [L / 2, 0, DEPTH / 2], [-Math.PI / 2, 0, 0]);
+const ceiling = roomPlane(L, DEPTH, new THREE.MeshStandardMaterial({ color: 0xf4f3ef, roughness: 1 }),
+  [L / 2, H, DEPTH / 2], [Math.PI / 2, 0, 0]);
+
+// --- Materials ------------------------------------------------------------
+const FRONTS = [["Кашмир", "#cbbfae"], ["Бяло мат", "#f1efe9"], ["Графит", "#3f4446"], ["Маслина", "#7c826b"]];
+const PLOTS = [["Дъб", "#b08756"], ["Бял камък", "#e4e1da"], ["Антрацит", "#2f3133"]];
+const KIND = {
+  korpus: { color: "#efede7", rough: 0.8, label: "ПДЧ 18 мм" },
+  hdf: { color: "#d8cfbe", rough: 0.9, label: "HDF 3 мм" },
+  front: { color: FRONTS[0][1], rough: 0.6, label: "Фронт 18 мм" },
+  cokal: { color: FRONTS[0][1], rough: 0.6, label: "Цокъл" },
+  plot: { color: PLOTS[0][1], rough: 0.55, label: "Плот 38 мм" },
+  fridge: { color: "#f5f5f3", rough: 0.4, label: "Уред" },
+  appliance: { color: "#b7babc", rough: 0.35, metal: 0.4, label: "Уред" },
+  metal: { color: "#9ea3a6", rough: 0.35, metal: 0.6, label: "Метал" },
+  drawer: { color: "#8c9193", rough: 0.5, metal: 0.3, label: "Чекмедже, схематично" },
+  inox: { color: "#c9cdcf", rough: 0.25, metal: 0.75, label: "Инокс, ориентировъчно" },
+  dark: { color: "#2a2c2e", rough: 0.7, label: "—" },
+};
+const edgeMat = new THREE.LineBasicMaterial({ color: 0x2b3134, transparent: true, opacity: 0.32 });
+
+// --- Parts ----------------------------------------------------------------
+const movers = new Map();
+for (const m of model.movers) {
+  const g = new THREE.Group();
+  g.position.set(...m.pivot);
+  scene.add(g);
+  movers.set(m.id, { def: m, group: g });
+}
+
+const meshes = [];
+const fmt = (v) => (Math.round(v * 10) / 10).toLocaleString("bg-BG", { maximumFractionDigits: 1 });
+for (const p of model.parts) {
+  const [x0, y0, z0, x1, y1, z1] = p.box;
+  const w = x1 - x0, h = y1 - y0, d = z1 - z0;
+  const k = KIND[p.kind];
+  const mat = new THREE.MeshStandardMaterial({
+    color: k.color, roughness: k.rough, metalness: k.metal || 0, transparent: true, opacity: 1,
+  });
+  const geo = p.shape === "cyl"
+    ? new THREE.CylinderGeometry(w / 2, w / 2, h, 20)
+    : new THREE.BoxGeometry(w, h, d);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = mesh.receiveShadow = true;
+  if (p.shape !== "cyl") mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
+  const c = new THREE.Vector3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+  const mv = p.mover && movers.get(p.mover);
+  if (mv) {
+    mesh.position.copy(c.sub(mv.group.position));
+    mv.group.add(mesh);
+  } else {
+    mesh.position.copy(c);
+    scene.add(mesh);
+  }
+  mesh.userData = { part: p, size: [w, h, d] };
+  meshes.push(mesh);
+}
+
+const setKindColor = (kinds, hex) => {
+  for (const m of meshes) if (kinds.includes(m.userData.part.kind)) m.material.color.set(hex);
+};
+
+// --- Dimensions -----------------------------------------------------------
+const dimGroup = new THREE.Group();
+scene.add(dimGroup);
+const dimLineMat = new THREE.LineBasicMaterial({ color: 0x1f6f8b, depthTest: false, transparent: true });
+for (const dm of model.dims) {
+  const a = new THREE.Vector3(...dm.a), b = new THREE.Vector3(...dm.b);
+  const dir = b.clone().sub(a);
+  const len = dir.length();
+  dir.normalize();
+  const tick = Math.abs(dir.y) > 0.5 ? new THREE.Vector3(30, 0, 0) : new THREE.Vector3(0, 30, 0);
+  const pts = [a, b,
+    a.clone().add(tick), a.clone().sub(tick), b.clone().add(tick), b.clone().sub(tick)];
+  const line = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), dimLineMat);
+  line.renderOrder = 10;
+  dimGroup.add(line);
+  const el = document.createElement("div");
+  el.className = "dim";
+  el.textContent = fmt(len);
+  const lab = new CSS2DObject(el);
+  lab.position.copy(a.clone().add(b).multiplyScalar(0.5));
+  dimGroup.add(lab);
+}
+
+// --- Open / close ---------------------------------------------------------
+let openTarget = 0, openNow = 0;
+const ease = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+function applyOpen(t) {
+  const e = ease(t);
+  for (const { def, group } of movers.values()) {
+    if (def.type === "hinge") group.rotation.y = THREE.MathUtils.degToRad(def.angle) * e;
+    else if (def.type === "flap") group.rotation.x = THREE.MathUtils.degToRad(def.angle) * e;
+    else if (def.type === "slide") group.position.z = def.pivot[2] + def.offset * e;
+  }
+}
+
+// --- Camera tween ---------------------------------------------------------
+let tween = null;
+function goView(name) {
+  const v = viewPose(name);
+  tween = {
+    t: 0, fromFov: camera.fov, toFov: v.fov,
+    fromPos: camera.position.clone(), toPos: v.pos,
+    fromT: controls.target.clone(), toT: v.target,
+  };
+}
+
+// --- Hover / tap readout --------------------------------------------------
+const ray = new THREE.Raycaster();
+const ptr = new THREE.Vector2();
+const info = document.getElementById("info");
+let hovered = null;
+function pick(ev) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ptr.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  const hit = ray.intersectObjects(meshes, false).find((h) => h.object.material.opacity > 0.5 || !xray);
+  setHover(hit ? hit.object : null);
+}
+function setHover(mesh) {
+  if (hovered === mesh) return;
+  if (hovered) hovered.material.emissive.set(0x000000);
+  hovered = mesh;
+  if (!mesh) { info.hidden = true; return; }
+  mesh.material.emissive.set(0x1f6f8b).multiplyScalar(0.35);
+  const { part } = mesh.userData;
+  const size = part.whole || mesh.userData.size;
+  document.getElementById("info-pos").textContent = "Поз. " + part.pos;
+  document.getElementById("info-name").textContent = part.name;
+  document.getElementById("info-size").textContent = size.map(fmt).join(" × ") + " мм";
+  document.getElementById("info-mat").textContent = KIND[part.kind].label;
+  document.getElementById("info-y").textContent = fmt(part.box[1]) + " – " + fmt(part.box[4]) + " мм";
+  info.hidden = false;
+}
+renderer.domElement.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") pick(e); });
+let downAt = null;
+renderer.domElement.addEventListener("pointerdown", (e) => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener("pointerup", (e) => {
+  if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 6) pick(e);
+  downAt = null;
+});
+renderer.domElement.addEventListener("pointerleave", () => setHover(null));
+
+// --- Controls -------------------------------------------------------------
+const toggle = (id, fn) => {
+  const b = document.getElementById(id);
+  b.addEventListener("click", () => {
+    const on = b.getAttribute("aria-pressed") !== "true";
+    b.setAttribute("aria-pressed", String(on));
+    fn(on);
+  });
+};
+let xray = false;
+toggle("t-open", (on) => {
+  openTarget = on ? 1 : 0;
+  document.getElementById("t-open").textContent = on ? "Затвори" : "Отвори";
+});
+toggle("t-xray", (on) => {
+  xray = on;
+  for (const m of meshes) {
+    if (["front", "cokal"].includes(m.userData.part.kind)) {
+      m.material.opacity = on ? 0.18 : 1;
+      m.material.depthWrite = !on;
+      m.castShadow = !on;
+    }
+  }
+});
+toggle("t-dims", (on) => { dimGroup.traverse((o) => { o.visible = on; }); });
+toggle("t-ceil", (on) => { ceiling.visible = on; });
+document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => goView(b.dataset.view)));
+
+function swatches(boxId, list, kinds) {
+  const box = document.getElementById(boxId);
+  list.forEach(([name, hex], i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "sw";
+    b.id = boxId + "-" + i;
+    b.title = name;
+    b.setAttribute("aria-label", name);
+    b.setAttribute("aria-pressed", String(i === 0));
+    b.style.background = hex;
+    b.addEventListener("click", () => {
+      box.querySelectorAll(".sw").forEach((s) => s.setAttribute("aria-pressed", "false"));
+      b.setAttribute("aria-pressed", "true");
+      setKindColor(kinds, hex);
+    });
+    box.appendChild(b);
+  });
+}
+swatches("sw-front", FRONTS, ["front", "cokal"]);
+swatches("sw-plot", PLOTS, ["plot"]);
+
+// --- Download (DXF 2D + 3D + PDF in a ZIP) -------------------------------
+const status = document.getElementById("status");
+const dl = document.getElementById("dl");
+(window.claude?.use?.("downloads") ?? Promise.resolve(null)).then((downloads) => {
+  if (!downloads) { dl.hidden = true; return; }
+  dl.addEventListener("click", async () => {
+    dl.disabled = true;
+    status.textContent = "Подготвям…";
+    try {
+      const zip = new JSZip();
+      for (const f of ["kuhnia-3d.dxf", "kuhnia.dxf", "kuhnia.pdf"]) {
+        const r = await fetch(f);
+        if (!r.ok) throw { code: "fetch", message: String(r.status) };
+        zip.file(f, await r.arrayBuffer());
+      }
+      const data = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+      await downloads.save({ filename: "kuhnia-dxf.zip", data });
+      status.textContent = "Изтеглено.";
+    } catch (e) {
+      status.textContent = e && e.code === "declined" ? "Отказано."
+        : e && e.code === "rate_limited" ? "Опитайте след малко."
+        : "Грешка при изтегляне.";
+    } finally {
+      dl.disabled = false;
+    }
+  });
+});
+
+// --- Resize & loop --------------------------------------------------------
+function resize() {
+  const w = app.clientWidth, h = app.clientHeight;
+  renderer.setSize(w, h);
+  labelRenderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(app);
+resize();
+{
+  const v = viewPose("persp");
+  camera.position.copy(v.pos);
+  controls.target.copy(v.target);
+}
+
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let last = performance.now();
+renderer.setAnimationLoop((now) => {
+  const dt = Math.min((now - last) / 1000, 0.1);
+  last = now;
+  if (openNow !== openTarget) {
+    const step = reduce ? 1 : dt / 0.9;
+    openNow = openTarget > openNow ? Math.min(openTarget, openNow + step) : Math.max(openTarget, openNow - step);
+    applyOpen(openNow);
+  }
+  if (tween) {
+    tween.t = reduce ? 1 : Math.min(1, tween.t + dt / 0.7);
+    const e = ease(tween.t);
+    camera.position.lerpVectors(tween.fromPos, tween.toPos, e);
+    controls.target.lerpVectors(tween.fromT, tween.toT, e);
+    camera.fov = tween.fromFov + (tween.toFov - tween.fromFov) * e;
+    camera.updateProjectionMatrix();
+    if (tween.t >= 1) tween = null;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+});
+</script>
