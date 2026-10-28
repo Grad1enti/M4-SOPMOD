@@ -1,4 +1,4 @@
-"""Права кухня – 3D модел. Генерира kuhnia3d.json (за 3D прегледа) и kuhnia-3d.dxf.
+"""Права кухня – 3D модел. Генерира kuhnia3d.json (геометрията за 3D DXF и прегледа).
 
 Оси (мм): x – по стената отляво надясно, y – нагоре от пода, z – навън от стената.
 Всеки детайл е паралелепипед [x0, y0, z0, x1, y1, z1], изчислен от params.py,
@@ -6,10 +6,6 @@
 """
 import json
 from pathlib import Path
-
-import ezdxf
-from ezdxf import units
-from ezdxf.render import forms
 
 from params import *  # noqa: F401,F403
 
@@ -220,24 +216,3 @@ model = {
 }
 (OUT / "kuhnia3d.json").write_text(json.dumps(model, ensure_ascii=False, separators=(",", ":")))
 print("parts", len(parts), "movers", len(movers))
-
-# --- 3D DXF (MESH), оста Z на AutoCAD е нагоре ----------------------------
-doc = ezdxf.new("R2018")
-doc.units = units.MM
-COLORS = {"korpus": 7, "hdf": 33, "front": 4, "plot": 30, "cokal": 8, "fridge": 9,
-          "appliance": 9, "metal": 8, "drawer": 8, "inox": 9, "dark": 250}
-for kind, color in COLORS.items():
-    doc.layers.add(kind.upper(), color=color)
-msp = doc.modelspace()
-for p in parts:
-    x0, y0, z0, x1, y1, z1 = p["box"]
-    # (x, y_нагоре, z_навън) -> DXF (x, -z, y)
-    w, d, hh = x1 - x0, z1 - z0, y1 - y0
-    if p["shape"] == "cyl":
-        m = forms.cylinder(count=16, radius=0.5, top_center=(0, 0, 1), caps=True)
-    else:
-        m = forms.cube(center=False)
-    m.scale(w, d, hh).translate(x0, -z1, y0)
-    m.render_mesh(msp, dxfattribs={"layer": p["kind"].upper()})
-doc.saveas(OUT / "kuhnia-3d.dxf")
-print("saved kuhnia-3d.dxf")
